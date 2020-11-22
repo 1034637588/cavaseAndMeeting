@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .none {
+            -webkit-filter: none;
+        }
+
+        .blur {
+            -webkit-filter: blur(3px);
+        }
+
+        .grayscale {
+            -webkit-filter: grayscale(1);
+
+        }
+
+        .inver {
+            -webkit-filter: invert(1);
+        }
+
+        .sepia {
+            -webkit-filter: sepia(1);
+        }
+    </style>
+</head>
+
+<body>
+    <select id="filter">
+        <option value="none">none</option>
+        <option value="blur">blur</option>
+        <option value="grayscale">grayscale</option>
+        <option value="invert">invert</option>
+        <option value="sepia">sepia</option>
+    </select>
+    <video id="videoPlayer" autoplay playsinline></video>
+    <video id="recPlayer" autoplay playsinline></video>
+    <div>
+        <button id="record">开始录制</button>
+        <button id="recplay" disabled>播放</button>
+        <button id="download" disabled>下载录制</button>
+
+    </div>
+    <div>
+        <button id="clipic">截取图片</button>
+        <canvas id="canvas"></canvas>
+    </div>
+</body>
+<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+<script>
+    // navigator.mediaDevices.enumerateDevices().then((data)=>console.log(data));  
+    //音视频的采集
+    let constraints = {
+        video: {
+            witdh: 640,  //设置宽
+            height: 480,//设置高
+            frameRate: 30 //帧率
+
+        },
+        audio: true
+    }
+    let videoPlayer = document.getElementById("videoPlayer");
+
+    function gotMediaStream(stream) { //采集成功的操作
+        videoPlayer.srcObject = stream; //让数据源等于这个捕获的视频流
+        window.stream = stream;
+    }
+
+    function handlerError(err) {
+        console.log(err)
+    }
+    navigator.mediaDevices.getUserMedia(constraints).then(gotMediaStream).catch(handlerError); //采集到的是流 流中包括轨
+
+    //特效的处理
+    function change(e) {
+        videoPlayer.className = filter.value;
+    }
+    filter.addEventListener("change", change);
+    //截取图片
+    clipic.onclick = function () {
+        canvas.getContext('2d').drawImage(videoPlayer, 0, 0, 320, 240);
+    }
+    canvas.witdh = 320; //设置canvas的宽高
+    canvas.height = 240;
+
+    //屏幕录制（stream是捕获来的流）
+    let buffer = []; //存储录制的二进制信息
+    let mediaRecorder;
+    function handleDataAvailable(e){
+        if(e && e.data && e.data.size > 0){
+            buffer.push(e.data);
+        }
+    }
+    function startRecord() {
+        let options = {
+            mimeType: 'video/webm;codecs=vp8'
+        }
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {//判断类型是否支持
+            console.log(options.mimeType + "不支持");
+            return;
+        };
+        try {
+            mediaRecorder = new MediaRecorder(window.stream, options); //创建录制对象
+
+        } catch (error) {
+            console.log(error);
+            return;
+        }
+        mediaRecorder.ondataavailable = handleDataAvailable; //记录数据时会触发
+        mediaRecorder.start(10);//参数是时间片
+
+    }
+    function stopRecord() {
+        mediaRecorder.stop();//停止录制
+    }
+    record.onclick = function () {
+        if (this.innerHTML === "开始录制") {
+            console.log("开始录制");
+            startRecord();
+            this.innerHTML = "结束录制";
+            recplay.disabled = true;
+            download.disabled = true;
+        } else {
+            stopRecord();
+            this.innerHTML = "开始录制";
+            recplay.disabled = false;
+            download.disabled = false;
+        }
+    }
+    recplay.onclick = function(){ //播放
+        let blob = new Blob(buffer,{type:'video/webm'});//创建一个可以处理buffer的对象
+        recPlayer.src = window.URL.createObjectURL(blob); //根据bolb创建一个url
+        recPlayer.srcObject = null;
+        recPlayer = true;
+        recPlayer.play();
+    }
+    download.onclick = function(){ //下载
+        let blob = new Blob(buffer,{type:'video/webm'});//创建一个可以处理buffer的对象
+        let url = window.URL.createObjectURL(blob); //根据bolb创建一个url
+        let a = document.createElement('a');
+        a.href = url;
+        a.style.display = 'none';
+        a.download = 'aaa.webm';//下载下来的名字
+    }
+</script>
+
+</html>

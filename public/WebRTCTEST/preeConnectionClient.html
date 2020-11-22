@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>client</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js"></script>
+    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+</head>
+
+<body>
+    <video width="340" height="240" id="remotevideo" autoplay playsinline></video>
+    <div>
+        <button id="connect">connect</button>
+        <button id="leave">leave</button>
+    </div>
+</body>
+<script>
+    let pClient = null;
+    let socketID;
+    function sendMessage(code, data,socketId) {
+        if (socket) {
+            socket.emit('message', data, code, "bbb",socketId);
+        }
+    }
+    leave.onclick = function () {
+        if (socket) {
+            socket.emit('leave', { code: '123', name: "周林阳",socketID});
+        }
+        closePreeConnection();
+        connect.disabled = false;
+        leave.disabled = true;
+    }
+    connect.onclick = function () {
+        conn();//与scoketio进行连接 并且接受服务器消息
+    }
+    function conn() {
+        socket = io.connect("localhost:3000");
+        socket.emit('joinMeeting', { code: '123', name: "clientZz" });
+        socket.on("userjoined", (room,id) => {
+            socketID = id;
+            console.log(id,'joined---------');
+            createPeerConnection(); //创建连接
+            connect.disabled = true;
+            leave.disabled = false;
+        });
+        socket.on("message", (code, data) => {
+            console.log(data,"---------------message")
+            if (data.msg.type === 'offer' && data.socketId === socketID) { //被调用方 收到offer后
+                pClient.setRemoteDescription(new RTCSessionDescription(data.msg));
+                pClient.createAnswer().then((e)=>getAnswer(e,socketID)).catch(handleAnswerError);
+            }
+            if (data.msg.type === "candidate" && data.socketId === socketID) {
+                console.log("candidate");
+                pClient.addIceCandidate(data.msg.data);
+            }
+        })
+    }
+    function closePreeConnection() { //销毁连接
+        console.log("closePreeConnection")
+        if (pClient) {
+            pClient.close();
+            pClient = null;
+        }
+    }
+
+    function getAnswer(desc,socketId) {
+        pClient.setLocalDescription(desc);
+        sendMessage("123", desc,socketId); //这里的123 就是会议room 暂时写死了
+    }
+
+    function handleAnswerError(error) {
+        console.log(error);
+    }
+
+    function createPeerConnection() {
+        console.log("createPeerConnection--------------")
+        if (!pClient) {
+            pClient = new RTCPeerConnection();
+            pClient.onicecandidate = (e) => {
+                if(e.candidate){ //当发现candidate后 发送出去
+                    sendMessage("123", {
+                        type: "candidate",
+                        data: e.candidate
+                },socketID)}
+            }
+            pClient.ontrack = (e) => {
+                console.log("ontrack-------------", e)
+                remotevideo.srcObject = e.streams[0];
+            } //数据通了的时候
+        }
+    }
+</script>
+
+</html>

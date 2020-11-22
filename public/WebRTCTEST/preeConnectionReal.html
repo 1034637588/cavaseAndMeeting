@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+
+    </style>
+</head>
+
+<body>
+    <video id="localvideo" autoplay playsinline></video>
+    <video width="340" height="240" id="remotevideo" autoplay playsinline></video>
+    <div>
+        <button id="connect">connect</button>
+        <button id="leave">leave</button>
+    </div>
+</body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js"></script>
+<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+<script>
+    let localStream = null;
+    let socket = null;
+    let pc;
+    let state = 'init'; //用来维护状态机
+    let Desc;
+    connect.onclick = () => {
+        //获取音视频数据
+        start();
+    }
+    leave.onclick = function () {
+        if (socket) {
+            socket.emit('leave', { code: '123', name: "周林阳" });
+        }
+        closePreeConnection();
+        closeLocalMedia();
+    }
+
+    function sendMessage(code, data) {
+        if (socket) {
+            socket.emit('message', data, "123", "bbb");
+        }
+    }
+
+    function handleOfferError() {
+
+    }
+
+    function handleAnswerError(error) {
+        console.log(error, "answer============")
+    }
+
+    function getOffer(desc) {
+        console.log("Offer=============")
+        pc.setLocalDescription(desc);
+        sendMessage("123", desc);
+    }
+    function getAnswer(desc) {
+        console.log("Answer=============")
+        Desc = desc;
+        pc.setLocalDescription(desc);
+        sendMessage("123", desc);
+    }
+    function call() {//媒体协商
+        //发起端才能调用
+        if (state === "joined_conn") {
+            console.log("joined_conn==========")
+            if (pc) {
+                let options = {
+                    offerToRecieveAudio: 1,
+                    offerToRecieveVideo: 1
+                }
+                pc.createOffer(options).then(getOffer).catch(handleOfferError); //创建offer发送给对端
+            }
+        }
+    }
+    function start() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            console.log("不支持navigator.mediaDevices")
+            return;
+        } else {
+            let constraints = {
+                video: true,
+                audio: false
+            }
+            navigator.mediaDevices.getUserMedia(constraints)
+                .then(getMediaStream)
+                .catch(handlError);
+        }
+    }
+    function conn() {
+        socket = io.connect("localhost:3000");
+        socket.on("joined", (data) => {
+            state = "joined";
+            createPeerConnection(); //创建连接
+            connect.disabled = true;
+            leave.disabled = false;
+            console.log(data);
+        });
+        socket.on("otherjoined", (data) => {
+            //另外一个用户来了 久进行媒体协商
+            state = 'joined_conn';
+            call();
+            //媒体协商
+            console.log(data)
+        });
+        socket.on("message", (code, data) => {
+            //媒体协商
+            if (data.msg.type === 'offer') { //被调用方 收到offer后
+                pc.setRemoteDescription(new RTCSessionDescription(data.msg));
+                pc.createAnswer().then(getAnswer).catch(handleAnswerError);
+            } else if (data.msg.type === 'answer') { //调用者收到回答的answer
+                pc.setRemoteDescription(new RTCSessionDescription(data.msg)); //设置调用方的dcp
+            } else if (data.msg.type === 'candidate') {
+                let candidate = new RTCIceCandidate({
+                    sdpMLineIndex: data.msg.label,
+                    candidate: data.msg.candidate
+                });
+                console.log("candidate----------",data.msg);
+                pc.addIceCandidate(candidate);
+            } else {
+
+            }
+
+        });
+        socket.on("leaved", (data) => {
+            connect.disabled = false;
+            leave.disabled = true;
+            state = 'leaved';
+            socket.disconnect();
+            console.log(data + "==============leaved")
+        });
+        socket.emit('joinMeeting', { code: '123', name: "周林阳" });
+
+        return;
+    }
+    function createPeerConnection() { //创建连接 监听事件
+        console.log("crerate pc");
+        if (!pc) {
+            // let pcConfig = {
+            //     'iceServers':[{
+            //         'urls':"",
+            //         'credential':'mypasswd',
+            //         'username':'zly'
+            //     }]
+            // }
+            // pc = new RTCPeerConnection(pcConfig);
+            pc = new RTCPeerConnection();
+            pc.onicecandidate = (e) => {
+                if (e.candidate) { //当发现candidate后
+                    sendMessage("123", {
+                        type: 'candidate',
+                        label: e.candidate.sdpMLineIndex,
+                        id: e.candidate.sdpMid,
+                        candidate: e.candidate.candidate
+                    });
+                }
+            }
+            pc.ontrack = (e) => {
+                console.log("ontrack-------------", e)
+                remotevideo.srcObject = e.streams[0];
+            }
+        }
+        if (localStream) {
+            console.log("localStream---------", localStream)
+            localStream.getTracks().forEach(track => { //把本地的track全部加入 这样协商的时候的sdp才有对于的音视频流
+                pc.addTrack(track);
+            });
+        }
+    }
+    function closePreeConnection() { //销毁连接
+        console.log("closePreeConnection")
+        if (pc) {
+            pc.close();
+            pc = null;
+        }
+    }
+    function closeLocalMedia() {
+        if (localStream && localStream.getTracks()) {
+            localStream.getTracks().forEach((track) => {
+                track.stop();
+            })
+        }
+        localStream = null;
+        console.log('closeLocalMedia');
+    }
+    function handlError() {
+
+    }
+    function getMediaStream(stream) {
+        localStream = stream; //保存流
+        localvideo.srcObject = localStream;
+        conn();//与scoketio进行连接 并且接受服务器消息
+    }
+</script>
+
+</html>

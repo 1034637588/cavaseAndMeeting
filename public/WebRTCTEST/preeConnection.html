@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+
+    </style>
+</head>
+
+<body>
+    <video id="localvideo" autoplay playsinline></video>
+    <video width="340" height="240" id="remotevideo" autoplay playsinline></video>
+    <div>
+        <button id="start">Start</button>
+        <button id="call">call</button>
+        <button id="hangUp">hangUp</button>
+        <button id="connect">connect</button>
+        <button id="leave">leave</button>
+    </div>
+</body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js"></script>    
+<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+<script>
+    let localStream = null;
+    let socket = null;
+    let pc1,pc2;
+    function getMediaStream(stream){
+        localvideo.srcObject = stream;
+        localStream = stream;
+    }
+    function handlError(error){
+        console.log(error);
+    }
+    function getRemoteStream(e){
+        remotevideo.srcObject = e.streams[0];
+    }
+    function getOffer(desc){
+        //可以获取sdp 
+        let sdp = desc.sdp;
+        pc1.setLocalDescription(desc);
+        //发送到信令服务器
+        //信令服务器转发给另一个人
+        pc2.setRemoteDescription(desc);
+        pc2.createAnswer().then(getAnswer).catch(hanldleAnswerError);
+    }
+    function getAnswer(desc){
+        let sdp = desc.sdp;
+        pc2.setLocalDescription(desc);
+        //发送到信令服务器
+        //信令服务器转发给另一个人  
+        pc1.setRemoteDescription(desc);
+    }
+    function handleOfferError(){
+
+    }
+    function hanldleAnswerError(){
+
+    }
+    start.onclick = function () {
+        if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+            console.log("不支持navigator.mediaDevices")
+            return;
+        }else{
+            let constraints = {
+                video:true,
+                audio:false
+            }
+            navigator.mediaDevices.getUserMedia(constraints)
+                                    .then(getMediaStream)
+                                    .catch(handlError);
+        }
+    };
+    call.onclick = function () {
+        pc1 = new RTCPeerConnection(); //调用者
+        pc1.onicecandidate = (e)=>{ 
+            pc2.addIceCandidate(e.candidate);
+        }
+        pc2 = new RTCPeerConnection(); //被调用者
+        pc2.onicecandidate = (e)=>{
+            pc1.addIceCandidate(e.candidate);
+        }
+        pc2.ontrack = getRemoteStream; //数据通了的时候
+
+        //媒体协商 先添加流
+        localStream.getTracks().forEach((track) => { //将本地采集的音视频流添加到pc1中 调用者中
+            pc1.addTrack(track,localStream);
+        });
+        //媒体协商
+        let offerOptions = {
+            offerToRecieveAudio:0,
+            offerToRecieveVideo:1
+        }
+        pc1.createOffer(offerOptions).then(getOffer).catch(handleOfferError);
+    }
+    hangUp.onclick = function () {
+        pc1.close();
+        pc2.close();
+        pc2 = null;
+        pc1 = null;
+    }
+</script>
+
+</html>

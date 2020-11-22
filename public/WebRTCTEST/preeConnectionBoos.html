@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>boos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js"></script>
+    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+</head>
+
+<body>
+    <video id="localvideo" autoplay playsinline></video>
+    <div>
+        <button id="connect">connect</button>
+        <button id="leave">leave</button>
+    </div>
+</body>
+<script>
+    let localStream = null;
+    let socket = null;
+    let pBoos = null;
+    let peerList = {};
+    connect.onclick = function () {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            console.log("不支持navigator.mediaDevices")
+            return;
+        } else {
+            let constraints = {
+                video: true,
+                audio: true
+            }
+            navigator.mediaDevices.getUserMedia(constraints)
+                .then(getMediaStream)
+                .catch(handlError);
+        }
+    };
+    leave.onclick = function(){
+        if (socket) {
+            socket.emit('leave', { code: '123', name: "boss" });
+        }
+        closePreeConnection();
+        closeLocalMedia();
+        connect.disabled = false;
+        leave.disabled = true;
+    }
+    function sendMessage(code, data,socketId) {
+        if (socket) {
+            socket.emit('message', data, code, "boss",socketId);
+        }
+    }
+    function closePreeConnection() { //销毁连接
+        console.log("closePreeConnection")
+        if (peerList) { //全部清理掉
+            for(id in peerList){
+                peerList[id].close();
+                peerList[id] = null;
+            }
+        }
+    }
+    function closeLocalMedia() {
+        if (localStream && localStream.getTracks()) {
+            localStream.getTracks().forEach((track) => {
+                track.stop();
+            })
+        }
+        localStream = null;
+        console.log('closeLocalMedia');
+    }
+    function createPeerConnection(socketId) {
+            pBoos = new RTCPeerConnection();
+            pBoos.onicecandidate = (e) => {
+                console.log("candidate---------", e);
+                if (e.candidate) { //当发现candidate后 发送出去（潜在的连接端点称为 ICE 候选者。）
+                    sendMessage("123",{ 
+                        type:"candidate",
+                        data: e.candidate
+                    },socketId);
+                }
+            }
+            //媒体协商 先添加流
+            localStream.getTracks().forEach((track) => { //将本地采集的音视频流添加到pBoos中 调用者中
+                pBoos.addTrack(track, localStream);
+            });
+            //媒体协商
+            let offerOptions = {
+                offerToRecieveAudio: 1,
+                offerToRecieveVideo: 1
+            }
+            pBoos.createOffer(offerOptions).then((e)=>getOffer(e,socketId)).catch(handleOfferError);
+            peerList[socketId] = pBoos;
+    }
+
+    function getOffer(desc,socketId) {
+        console.log(socketId,"----------getOffer");
+        pBoos.setLocalDescription(desc);
+        sendMessage("123",desc,socketId); //发送给接受端
+    }
+    function handleOfferError(error) {
+        console.log(error)
+    }
+    function conn() {
+        socket = io.connect("localhost:3000");
+        socket.emit('makeMeeting', { code: '123', name: "boss" }); //这里的code相当于是房间id 就暂时写死
+        socket.on("otherjoined", (room,name,socketId) => {
+            console.log('otherjoined---------',room,socketId);
+            createPeerConnection(socketId); //创建连接
+            connect.disabled = true;
+            leave.disabled = false;
+        });
+        socket.on("message", (code, data) => { //监听answer
+            if (data.msg.type === 'answer') { //调用者收到回答的answer
+                peerList[data.socketId].setRemoteDescription(new RTCSessionDescription(data.msg)); //设置调用方的dcp
+            }
+            if(data.msg.type === "candidate"){
+                peerList[data.socketId].addIceCandidate(data.msg.data);
+            }
+        });
+
+        socket.on("otherleaved",(room, name,socketID)=>{
+            console.log(room,name,socketID,"otherleaved------------------");
+            peerList[socketID].close();
+            peerList[socketID] = null;
+        })
+
+    }
+    function getMediaStream(stream) {
+        localvideo.srcObject = stream;
+        localStream = stream;
+        conn();//与scoketio进行连接 并且接受服务器消息
+    }
+    function handlError(error) {
+        console.log(error);
+    }
+</script>
+
+</html>

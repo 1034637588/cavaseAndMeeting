@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .none {
+            -webkit-filter: none;
+        }
+
+        .blur {
+            -webkit-filter: blur(3px);
+        }
+
+        .grayscale {
+            -webkit-filter: grayscale(1);
+
+        }
+
+        .inver {
+            -webkit-filter: invert(1);
+        }
+
+        .sepia {
+            -webkit-filter: sepia(1);
+        }
+    </style>
+</head>
+
+<body>
+    <audio autoplay controls id="audioPlayer"></audio>
+    <select id="filter">
+        <option value="none">none</option>
+        <option value="blur">blur</option>
+        <option value="grayscale">grayscale</option>
+        <option value="invert">invert</option>
+        <option value="sepia">sepia</option>
+    </select>
+    <video id="videoPlayer" autoplay playsinline></video>
+    <div>
+        <button id = "clipic">截取图片</button>
+        <canvas id = "canvas"></canvas>
+    </div>
+</body>
+<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+<script>
+    // navigator.mediaDevices.enumerateDevices().then((data)=>console.log(data));  
+    //音视频的采集
+    let constraints = {
+        video: {
+            witdh: 640,  //设置宽
+            height: 480,//设置高
+            frameRate: 30 //帧率
+
+        },
+        audio: true
+    }
+    let videoPlayer = document.getElementById("videoPlayer");
+
+    function gotMediaStream(stream) { //采集成功的操作
+        videoPlayer.srcObject = stream; //让数据源等于这个捕获的视频流
+    }
+
+    function handlerError(err) {
+        console.log(err)
+    }
+    navigator.mediaDevices.getUserMedia(constraints).then(gotMediaStream).catch(handlerError); //采集到的是流 流中包括轨
+    //==============================
+    // //只采集音频
+    // let audioPlayer = document.getElementById("audioPlayer");
+    // let constraints2 = {
+    //     video:false,
+    //     audio: true
+    // }//只采集音频
+    // navigator.mediaDevices.getUserMedia(constraints2).then(gotMediaStream).catch(handlerError); //采集到的是流 流中包括轨
+    // function gotMediaStream(stream) { //采集成功的操作
+    //     audioPlayer.srcObject = stream; //让数据源等于这个捕获的视频流
+    // }
+
+    // function handlerError(err) {
+    //     console.log(err)
+    // }
+    //============================
+    //特效的处理
+    function change(e) {
+        videoPlayer.className = filter.value;
+    }
+    filter.addEventListener("change", change);
+    //截取图片
+    clipic.onclick = function(){
+        canvas.getContext('2d').drawImage(videoPlayer,0,0,320,240);
+    }
+    canvas.witdh = 320; //设置canvas的宽高
+    canvas.height = 240;
+</script>
+
+</html>
