@@ -14,9 +14,9 @@
  - 再npm run start就可以运行项目了
 
 相关文档
-[http://fabricjs.com/](http://fabricjs.com/)
-[https://socket.io/](https://socket.io/)
-[https://www.npmjs.com/package/vue-socket-io](https://www.npmjs.com/package/vue-socket-io)
+- [http://fabricjs.com/](http://fabricjs.com/)
+- [https://socket.io/](https://socket.io/)
+- [https://www.npmjs.com/package/vue-socket-io](https://www.npmjs.com/package/vue-socket-io)
 项目运行效果：
 主页面
 ![主页面会议大厅](https://img-blog.csdnimg.cn/20201127143943488.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQ0ODEyODM1,size_16,color_FFFFFF,t_70)
@@ -26,3 +26,4 @@
 ![开会](https://img-blog.csdnimg.cn/20201127144122146.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQ0ODEyODM1,size_16,color_FFFFFF,t_70)
 ![参加会议](https://img-blog.csdnimg.cn/20201127144148135.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQ0ODEyODM1,size_16,color_FFFFFF,t_70)
 
+- 如果图片无法查看请访问[https://blog.csdn.net/qq_44812835/article/details/110230223]
